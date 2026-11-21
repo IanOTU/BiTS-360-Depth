@@ -52,7 +52,7 @@
       border: 1.5px solid #003C71;
       background: #FFFFFF;
       color: #003C71;
-      padding: 6px 12px;
+      padding: 5px 10px;
       border-radius: 6px;
       font-size: 12px;
       font-weight: 600;
@@ -133,6 +133,8 @@
     <button class="model-btn ours active" onclick="setModel('BiTS_DCN', this)">Ours (BiTS+DCN)</button>
     <button class="model-btn" onclick="setModel('Auto_DCN', this)">Auto+DCN</button>
     <button class="model-btn" onclick="setModel('GT', this)">GT</button>
+    <button class="model-btn" onclick="setModel('SL_CNN', this)">SL CNN</button>
+    <button class="model-btn" onclick="setModel('SSL_CNN', this)">SSL CNN</button>
   </div>
 
   <div id="viewer">
@@ -243,7 +245,7 @@
       currentModel = modelName;
       document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      loadCurrent(false);
+      loadCurrent(false); // Keeps exact camera angle so users can compare models directly
     };
 
     sizeSlider.addEventListener('input', () => {
