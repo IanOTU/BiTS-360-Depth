@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>360° Depth Estimation — Interactive 3D Point Clouds</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #EAF0F6;
+      color: #1E293B;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #FFFFFF;
+      border-bottom: 3px solid #003C71;
+      padding: 10px 14px;
+      z-index: 10;
+    }
+    header h1 {
+      font-size: 14px;
+      color: #003C71;
+      line-height: 1.3;
+    }
+    header p {
+      font-size: 11px;
+      color: #475569;
+      margin-top: 2px;
+    }
+    .bar {
+      display: flex;
+      gap: 6px;
+      padding: 8px 14px;
+      background: #F8FAFC;
+      border-bottom: 1px solid #CBD8E6;
+      z-index: 10;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .bar-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      margin-right: 2px;
+    }
+    button {
+      border: 1.5px solid #003C71;
+      background: #FFFFFF;
+      color: #003C71;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.active {
+      background: #003C71;
+      color: #FFFFFF;
+    }
+    button.ours.active {
+      background: #C84B11;
+      border-color: #C84B11;
+      color: #FFFFFF;
+    }
+    .slider-wrap {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #334155;
+    }
+    #viewer {
+      flex: 1;
+      position: relative;
+      width: 100%;
+    }
+    #status {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.95);
+      border: 1.5px solid #0077CA;
+      color: #003C71;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      pointer-events: none;
+    }
+    .hint {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.92);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      color: #334155;
+      border: 1px solid #CBD8E6;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Self-Supervised 360° Depth Estimation (VMamba + DCNv4 + BiTS)</h1>
+    <p>Ontario Tech University • Interactive 3D Reconstruction</p>
+  </header>
+
+  <div class="bar">
+    <span class="bar-label">Scene:</span>
+    <button class="scene-btn active" onclick="setScene('scene_1', this)">Scene 1</button>
+    <button class="scene-btn" onclick="setScene('scene_2', this)">Scene 2</button>
+    <button class="scene-btn" onclick="setScene('scene_3', this)">Scene 3</button>
+    <div class="slider-wrap">
+      <label for="ptSize">Size</label>
+      <input id="ptSize" type="range" min="0.005" max="0.06" step="0.005" value="0.02" />
+    </div>
+  </div>
+
+  <div class="bar">
+    <span class="bar-label">Model:</span>
+    <button class="model-btn ours active" onclick="setModel('BiTS_DCN', this)">Ours (BiTS+DCN)</button>
+    <button class="model-btn" onclick="setModel('Auto_DCN', this)">Auto+DCN</button>
+    <button class="model-btn" onclick="setModel('GT', this)">GT</button>
+  </div>
+
+  <div id="viewer">
+    <div id="status">Loading 3D Point Cloud...</div>
+    <div class="hint">1 finger: Rotate • 2 fingers: Pinch Zoom & Pan</div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+
+    const container = document.getElementById('viewer');
+    const statusEl = document.getElementById('status');
+    const sizeSlider = document.getElementById('ptSize');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111827);
+
+    const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.01, 100);
+    camera.position.set(0, 2.5, 4.5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    const loader = new PLYLoader();
+    let currentPoints = null;
+    let currentScene = 'scene_1';
+    let currentModel = 'BiTS_DCN';
+
+    function loadCurrent(resetCamera) {
+      const filename = `${currentModel}_${currentScene}_pred.ply`;
+      statusEl.style.display = 'block';
+      statusEl.textContent = `Loading ${filename}...`;
+
+      loader.load(
+        filename,
+        (geometry) => {
+          if (currentPoints) {
+            scene.remove(currentPoints);
+            currentPoints.geometry.dispose();
+            currentPoints.material.dispose();
+          }
+
+          geometry.computeBoundingBox();
+          const center = new THREE.Vector3();
+          geometry.boundingBox.getCenter(center);
+          geometry.translate(-center.x, -center.y, -center.z);
+
+          const hasColors = geometry.hasAttribute('color');
+          const material = new THREE.PointsMaterial({
+            size: parseFloat(sizeSlider.value),
+            vertexColors: hasColors,
+            color: hasColors ? 0xffffff : 0x38bdf8
+          });
+
+          currentPoints = new THREE.Points(geometry, material);
+          // Uncomment the next line if the room renders sideways (Z-up vs Y-up):
+          // currentPoints.rotation.x = -Math.PI / 2;
+          scene.add(currentPoints);
+
+          if (resetCamera) {
+            const box = new THREE.Box3().setFromObject(currentPoints);
+            const size = box.getSize(new THREE.Vector3()).length();
+            camera.position.set(0, size * 0.45, size * 0.85);
+            controls.target.set(0, 0, 0);
+            controls.update();
+          }
+
+          statusEl.style.display = 'none';
+        },
+        (xhr) => {
+          if (xhr.total > 0) {
+            const pct = Math.round((xhr.loaded / xhr.total) * 100);
+            statusEl.textContent = `Loading ${filename} (${pct}%)...`;
+          }
+        },
+        (err) => {
+          statusEl.textContent = `Could not load ${filename}.`;
+          console.error(err);
+        }
+      );
+    }
+
+    window.setScene = function(sceneName, btn) {
+      currentScene = sceneName;
+      document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadCurrent(true);
+    };
+
+    window.setModel = function(modelName, btn) {
+      currentModel = modelName;
+      document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadCurrent(false);
+    };
+
+    sizeSlider.addEventListener('input', () => {
+      if (currentPoints) currentPoints.material.size = parseFloat(sizeSlider.value);
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    loadCurrent(true);
+    animate();
+  </script>
+</body>
+</html>
