@@ -124,7 +124,7 @@
     <button class="scene-btn" onclick="setScene('scene_3', this)">Scene 3</button>
     <div class="slider-wrap">
       <label for="ptSize">Size</label>
-      <input id="ptSize" type="range" min="0.005" max="0.06" step="0.005" value="0.02" />
+      <input id="ptSize" type="range" min="0.005" max="0.06" step="0.005" value="0.025" />
     </div>
   </div>
 
@@ -145,8 +145,8 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+        "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
       }
     }
   </script>
@@ -245,7 +245,7 @@
       currentModel = modelName;
       document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      loadCurrent(false); // Keeps exact camera angle so users can compare models directly
+      loadCurrent(false);
     };
 
     sizeSlider.addEventListener('input', () => {
