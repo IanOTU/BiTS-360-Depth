@@ -94,6 +94,7 @@
       font-weight: 600;
       font-size: 13px;
       pointer-events: none;
+      text-align: center;
     }
     .hint {
       position: absolute;
@@ -145,8 +146,8 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
       }
     }
   </script>
@@ -228,7 +229,7 @@
           }
         },
         (err) => {
-          statusEl.textContent = `Could not load ${filename}.`;
+          statusEl.textContent = `Could not load ${filename} (check repo root & exact filename).`;
           console.error(err);
         }
       );
